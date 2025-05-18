@@ -3,13 +3,9 @@ import pygame
 import os
 from pgzero.keyboard import keys
 
-
-
-
-
-
 WIDTH = 800
 HEIGHT = 600
+
 
 PLAYER_SPEED = 5
 BASE_ENEMY_SPEED = 3
@@ -22,15 +18,29 @@ level_damage_taken = False
 perfect_level_streak = 0
 life_up_sound = pygame.mixer.Sound("music/powerup.mp3")
 
+STATE_OPTIONS = "options"
+STATE_EXIT = "exit"
 STATE_MENU = "menu"
 STATE_PLAYING = "playing"
 STATE_PAUSED = "paused"
 STATE_LOST = "lost"
+menu_selection = 0
+menu_options = ["Start", "Options", "Exit"]
+options_selection = 0
+options_list = ["Music Volume", "Screen Size"]
+music_volume = 0.5  # 0.0 ile 1.0 arası
+screen_size_index = 0
+screen_sizes = [(800, 600), (1024, 768), (1280, 720)]
 
 score = 0
 lives = INITIAL_LIVES
 best_score = 0
 game_state = STATE_MENU
+
+def apply_screen_size(index):
+    global WIDTH, HEIGHT
+    WIDTH, HEIGHT = screen_sizes[index]
+    screen.surface = pygame.display.set_mode((WIDTH, HEIGHT))
 
 def load_best_score():
     global best_score
@@ -459,20 +469,103 @@ def update():
                 player.x, player.y = 50, HEIGHT // 2
             break
 
+def restart_game():
+    global game_state, score, lives, rotating_enemies, pending_rotating_enemies
+    global level_damage_taken, perfect_level_streak
+
+    score = 0
+    lives = INITIAL_LIVES
+    player.x, player.y = 50, HEIGHT // 2
+    rotating_enemies.clear()
+    pending_rotating_enemies.clear()
+    explosions.clear()
+    spawn_enemies()
+
+    for _ in range(2):
+        new_enemy = spawn_rotating_enemy_not_too_close(rotating_enemies)
+        rotating_enemies.append(new_enemy)
+
+    level_damage_taken = False
+    perfect_level_streak = 0
+    game_state = STATE_PLAYING
 
 def on_key_down(key):
     global game_state
-    if game_state == STATE_MENU and key == keys.SPACE:
-        start_game()
+    global menu_selection, options_selection
+    global music_volume, screen_size_index
+
+    if game_state == STATE_MENU:
+        if key == keys.UP:
+            menu_selection = (menu_selection - 1) % len(menu_options)
+        elif key == keys.DOWN:
+            menu_selection = (menu_selection + 1) % len(menu_options)
+        elif key == keys.RETURN:
+            selection = menu_options[menu_selection]
+            if selection == "Start":
+                start_game()
+            elif selection == "Options":
+                game_state = STATE_OPTIONS
+            elif selection == "Exit":
+                pygame.quit()
+                exit()
+
+    elif game_state == STATE_OPTIONS:
+        if key == keys.UP:
+            options_selection = (options_selection - 1) % len(options_list)
+        elif key == keys.DOWN:
+            options_selection = (options_selection + 1) % len(options_list)
+        elif key == keys.LEFT:
+            if options_list[options_selection] == "Music Volume":
+                music_volume = max(0.0, music_volume - 0.1)
+                pygame.mixer.music.set_volume(music_volume)
+            elif options_list[options_selection] == "Screen Size":
+                screen_size_index = (screen_size_index - 1) % len(screen_sizes)
+                apply_screen_size(screen_size_index)
+        elif key == keys.RIGHT:
+            if options_list[options_selection] == "Music Volume":
+                music_volume = min(1.0, music_volume + 0.1)
+                pygame.mixer.music.set_volume(music_volume)
+            elif options_list[options_selection] == "Screen Size":
+                screen_size_index = (screen_size_index + 1) % len(screen_sizes)
+                apply_screen_size(screen_size_index)
+        elif key == keys.ESCAPE:
+            game_state = STATE_MENU
+
+    elif game_state == STATE_LOST:
+        if key == keys.R:
+            restart_game()
+
     elif key == keys.P:
-        game_state = STATE_PAUSED if game_state == STATE_PLAYING else STATE_PLAYING
-    elif key == keys.R and game_state == STATE_LOST:
-        sounds.button.play()
-        start_game()
+        if game_state == STATE_PLAYING:
+            game_state = STATE_PAUSED
+        elif game_state == STATE_PAUSED:
+            game_state = STATE_PLAYING
+def draw_menu():
+    screen.draw.text("Main Menu", center=(WIDTH // 2, 100), fontsize=60, color="white")
+    for i, option in enumerate(menu_options):
+        color = "yellow" if i == menu_selection else "white"
+        screen.draw.text(option, center=(WIDTH // 2, 200 + i * 50), fontsize=40, color=color)
+
+def draw_options():
+    screen.draw.text("Options", center=(WIDTH // 2, 100), fontsize=60, color="white")
+    for i, option in enumerate(options_list):
+        color = "yellow" if i == options_selection else "white"
+        value = ""
+        if option == "Music Volume":
+            value = f"{int(music_volume * 100)}%"
+        elif option == "Screen Size":
+            value = f"{screen_sizes[screen_size_index][0]}x{screen_sizes[screen_size_index][1]}"
+        screen.draw.text(f"{option}: {value}", center=(WIDTH // 2, 200 + i * 50), fontsize=40, color=color)
 
 def draw():
     screen.clear()
     screen.blit("background", (0, 0))
+    if game_state == STATE_MENU:
+        draw_menu()
+        return
+    elif game_state == STATE_OPTIONS:
+        draw_options()
+        return
     draw_lives(lives)
 
     player.draw()
@@ -509,8 +602,4 @@ def draw():
 
 
 
-
-
-
 music.play("bgmusic.mp3")
-music.set_volume(0.3)

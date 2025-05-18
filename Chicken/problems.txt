@@ -1,0 +1,64 @@
+crashes when clicked options
+
+def draw():
+    screen.clear()
+    screen.blit("background", (0, 0))
+    if game_state == STATE_MENU:
+        draw_menu()
+        return
+    elif game_state == STATE_OPTIONS:
+        draw_options()
+        return
+    draw_lives(lives)
+
+def on_key_down(key):
+    global game_state
+    global menu_selection, options_selection
+    global music_volume, screen_size_index
+
+    if game_state == STATE_MENU:
+        if key == keys.UP:
+            menu_selection = (menu_selection - 1) % len(menu_options)
+        elif key == keys.DOWN:
+            menu_selection = (menu_selection + 1) % len(menu_options)
+        elif key == keys.RETURN:
+            selection = menu_options[menu_selection]
+            if selection == "Start":
+                start_game()
+            elif selection == "Options":
+                game_state = STATE_OPTIONS
+            elif selection == "Exit":
+                pygame.quit()
+                exit()
+
+    elif game_state == STATE_OPTIONS:
+        if key == keys.UP:
+            options_selection = (options_selection - 1) % len(options_list)
+        elif key == keys.DOWN:
+            options_selection = (options_selection + 1) % len(options_list)
+        elif key == keys.LEFT:
+            if options_list[options_selection] == "Music Volume":
+                music_volume = max(0.0, music_volume - 0.1)
+                pygame.mixer.music.set_volume(music_volume)
+            elif options_list[options_selection] == "Screen Size":
+                screen_size_index = (screen_size_index - 1) % len(screen_sizes)
+                apply_screen_size(screen_size_index)
+        elif key == keys.RIGHT:
+            if options_list[options_selection] == "Music Volume":
+                music_volume = min(1.0, music_volume + 0.1)
+                pygame.mixer.music.set_volume(music_volume)
+            elif options_list[options_selection] == "Screen Size":
+                screen_size_index = (screen_size_index + 1) % len(screen_sizes)
+                apply_screen_size(screen_size_index)
+        elif key == keys.ESCAPE:
+            game_state = STATE_MENU
+
+    elif game_state == STATE_LOST:
+        if key == keys.R:
+            restart_game()
+
+    elif key == keys.P:
+        if game_state == STATE_PLAYING:
+            game_state = STATE_PAUSED
+        elif game_state == STATE_PAUSED:
+            game_state = STATE_PLAYING
